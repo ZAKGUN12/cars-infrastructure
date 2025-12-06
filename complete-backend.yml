@@ -317,6 +317,64 @@ Resources:
               };
             }
           }
+          
+          async function getLeaderboard() {
+            try {
+              const result = await dynamodb.scan({
+                TableName: process.env.GAME_DATA_TABLE
+              }).promise();
+              
+              const leaderboard = result.Items
+                .map(item => ({
+                  username: item.username || 'Anonymous',
+                  highScore: item.stats.highScore || 0,
+                  level: item.stats.level || 1,
+                  gamesPlayed: item.stats.gamesPlayed || 0
+                }))
+                .sort((a, b) => b.highScore - a.highScore)
+                .slice(0, 10)
+                .map((user, index) => ({
+                  rank: index + 1,
+                  ...user
+                }));
+              
+              return {
+                statusCode: 200,
+                headers: corsHeaders,
+                body: JSON.stringify(leaderboard)
+              };
+            } catch (error) {
+              console.error('Get leaderboard error:', error);
+              return {
+                statusCode: 500,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Failed to get leaderboard' })
+              };
+            }
+          }
+          
+          async function getVehicleImage(path) {
+            try {
+              const imageKey = path.replace('/images/', '');
+              const s3Url = `https://vehicle-guesser-1764962592.s3.amazonaws.com/images/${imageKey}`;
+              
+              return {
+                statusCode: 302,
+                headers: {
+                  ...corsHeaders,
+                  'Location': s3Url,
+                  'Cache-Control': 'public, max-age=86400'
+                }
+              };
+            } catch (error) {
+              console.error('Get image error:', error);
+              return {
+                statusCode: 404,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Image not found' })
+              };
+            }
+          }
       Environment:
         Variables:
           GAME_DATA_TABLE: !Ref GameDataTable
