@@ -34,6 +34,19 @@ jobs:
         echo "USER_POOL_ID=$USER_POOL_ID" >> $GITHUB_ENV
         echo "✅ User Pool ID: $USER_POOL_ID"
     
+    - name: Handle Failed Backend Stack
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: eu-west-1
+      run: |
+        STACK_STATUS=$(aws cloudformation describe-stacks --stack-name vehicle-guesser-backend --query 'Stacks[0].StackStatus' --output text --region eu-west-1 2>/dev/null || echo "DOES_NOT_EXIST")
+        if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STACK_STATUS" = "CREATE_FAILED" ]; then
+          echo "⚠️ Deleting failed stack: $STACK_STATUS"
+          aws cloudformation delete-stack --stack-name vehicle-guesser-backend --region eu-west-1
+          aws cloudformation wait stack-delete-complete --stack-name vehicle-guesser-backend --region eu-west-1
+        fi
+    
     - name: Deploy Backend Infrastructure
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -48,3 +61,12 @@ jobs:
           --parameter-overrides \
             Environment=prod \
             UserPoolId=$USER_POOL_ID
+    
+    - name: Create S3 Bucket for Frontend
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: eu-west-1
+      run: |
+        aws s3 mb s3://vehicle-guesser-frontend --region eu-west-1 || true
+        aws s3api put-bucket-policy --bucket vehicle-guesser-frontend --policy file://cloudfront-security.json || true
