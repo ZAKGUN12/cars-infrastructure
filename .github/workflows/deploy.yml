@@ -1,0 +1,50 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy Cognito User Pool
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: eu-west-1
+      run: |
+        aws cloudformation deploy \
+          --template-file cognito-simple.yml \
+          --stack-name vehicle-guesser-cognito \
+          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+          --region eu-west-1 \
+          --parameter-overrides Environment=prod
+    
+    - name: Get Cognito User Pool ID
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: eu-west-1
+      run: |
+        USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name vehicle-guesser-cognito --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' --output text --region eu-west-1)
+        echo "USER_POOL_ID=$USER_POOL_ID" >> $GITHUB_ENV
+        echo "✅ User Pool ID: $USER_POOL_ID"
+    
+    - name: Deploy Backend Infrastructure
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: eu-west-1
+      run: |
+        aws cloudformation deploy \
+          --template-file complete-backend.yml \
+          --stack-name vehicle-guesser-backend \
+          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+          --region eu-west-1 \
+          --parameter-overrides \
+            Environment=prod \
+            UserPoolId=$USER_POOL_ID
