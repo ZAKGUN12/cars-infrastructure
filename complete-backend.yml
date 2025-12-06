@@ -113,6 +113,10 @@ Resources:
                 return await getLeaderboard();
               }
               
+              if (path.startsWith('/images/') && httpMethod === 'GET') {
+                return await getVehicleImage(path);
+              }
+              
               return {
                 statusCode: 404,
                 headers: corsHeaders,
@@ -290,6 +294,29 @@ Resources:
               };
             }
           }
+          
+          async function getVehicleImage(path) {
+            try {
+              const imageKey = path.replace('/images/', '');
+              const s3Url = `https://vehicle-guesser-1764962592.s3.amazonaws.com/images/${imageKey}`;
+              
+              return {
+                statusCode: 302,
+                headers: {
+                  ...corsHeaders,
+                  'Location': s3Url,
+                  'Cache-Control': 'public, max-age=86400'
+                }
+              };
+            } catch (error) {
+              console.error('Get image error:', error);
+              return {
+                statusCode: 404,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Image not found' })
+              };
+            }
+          }
       Environment:
         Variables:
           GAME_DATA_TABLE: !Ref GameDataTable
@@ -332,6 +359,20 @@ Resources:
       RestApiId: !Ref ApiGateway
       ParentId: !GetAtt ApiGateway.RootResourceId
       PathPart: leaderboard
+
+  ImagesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: images
+
+  ImagesProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !Ref ImagesResource
+      PathPart: '{proxy+}'
 
   # API Gateway Methods
   GameDataGetMethod:
@@ -397,6 +438,30 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiLambdaFunction.Arn}/invocations'
 
+  ImagesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref ImagesProxyResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiLambdaFunction.Arn}/invocations'
+
+  ImagesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref ImagesProxyResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiLambdaFunction.Arn}/invocations'
+
   # Lambda Permissions
   ApiGatewayInvokePermission:
     Type: AWS::Lambda::Permission
@@ -415,6 +480,8 @@ Resources:
       - LeaderboardGetMethod
       - GameDataOptionsMethod
       - LeaderboardOptionsMethod
+      - ImagesGetMethod
+      - ImagesOptionsMethod
     Properties:
       RestApiId: !Ref ApiGateway
       StageName: !Ref Environment
