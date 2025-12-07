@@ -21,7 +21,7 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides \
     EnableGoogleAuth=true \
-    GoogleOAuthSecretName=vehicle-guesser-google-oauth-prod
+    GoogleOAuthSecretName=vehicle-guesser-google-oauth-prod-jR3mey
 
 # Deploy Backend
 aws cloudformation deploy \
