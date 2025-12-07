@@ -7,7 +7,7 @@ Parameters:
     Default: prod
   AppId:
     Type: String
-    Default: 'com.zekscaler.vehicleguesser'
+    Default: 'com.yourcompany.vehicleguesser'
     Description: Mobile app bundle identifier
   EnableGoogleAuth:
     Type: String
