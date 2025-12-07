@@ -137,12 +137,12 @@ Resources:
       Domain: !Sub 'vehicle-guesser-${Environment}-${AWS::AccountId}'
       UserPoolId: !Ref UserPool
 
-  UserPoolClient:
+  UserPoolClientWithGoogle:
     Type: AWS::Cognito::UserPoolClient
-    DependsOn: !If
-      - HasGoogleAuth
-      - [UserPool, GoogleIdentityProvider]
-      - [UserPool]
+    Condition: HasGoogleAuth
+    DependsOn:
+      - UserPool
+      - GoogleIdentityProvider
     Properties:
       ClientName: !Sub 'vehicle-guesser-client-${Environment}'
       UserPoolId: !Ref UserPool
@@ -150,10 +150,46 @@ Resources:
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
-      SupportedIdentityProviders: !If
-        - HasGoogleAuth
-        - [COGNITO, Google]
-        - [COGNITO]
+      SupportedIdentityProviders:
+        - COGNITO
+        - Google
+      CallbackURLs:
+        - 'https://dw78cwmd7ajty.cloudfront.net'
+        - 'http://localhost:5173'
+        - 'http://localhost:5174'
+      LogoutURLs:
+        - 'https://dw78cwmd7ajty.cloudfront.net'
+        - 'http://localhost:5173'
+        - 'http://localhost:5174'
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      AccessTokenValidity: 24
+      IdTokenValidity: 24
+      RefreshTokenValidity: 30
+
+  UserPoolClientWithoutGoogle:
+    Type: AWS::Cognito::UserPoolClient
+    Condition: !Not [HasGoogleAuth]
+    DependsOn:
+      - UserPool
+    Properties:
+      ClientName: !Sub 'vehicle-guesser-client-${Environment}'
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
       CallbackURLs:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
@@ -186,7 +222,10 @@ Outputs:
   
   UserPoolClientId:
     Description: Cognito User Pool Client ID
-    Value: !Ref UserPoolClient
+    Value: !If
+      - HasGoogleAuth
+      - !Ref UserPoolClientWithGoogle
+      - !Ref UserPoolClientWithoutGoogle
     Export:
       Name: !Sub '${AWS::StackName}-UserPoolClientId'
   
