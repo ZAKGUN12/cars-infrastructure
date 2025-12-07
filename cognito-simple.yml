@@ -141,6 +141,7 @@ Resources:
     Type: AWS::Cognito::UserPoolClient
     DependsOn:
       - UserPool
+      - GoogleIdentityProvider
     Properties:
       ClientName: !Sub 'vehicle-guesser-client-${Environment}'
       UserPoolId: !Ref UserPool
