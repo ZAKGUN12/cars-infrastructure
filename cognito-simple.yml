@@ -100,9 +100,11 @@ Resources:
       CallbackURLs:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
+        - 'http://localhost:5174'
       LogoutURLs:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
+        - 'http://localhost:5174'
       AllowedOAuthFlows:
         - code
       AllowedOAuthScopes:
