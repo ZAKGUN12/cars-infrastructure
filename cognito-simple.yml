@@ -24,6 +24,10 @@ Conditions:
   HasGoogleAuth: !And
     - !Equals [!Ref EnableGoogleAuth, 'true']
     - !Not [!Equals [!Ref GoogleClientId, '']]
+  NoGoogleAuth: !Not
+    - !And
+      - !Equals [!Ref EnableGoogleAuth, 'true']
+      - !Not [!Equals [!Ref GoogleClientId, '']]
 
 Resources:
   # Lambda function for account linking
@@ -178,7 +182,7 @@ Resources:
 
   UserPoolClientWithoutGoogle:
     Type: AWS::Cognito::UserPoolClient
-    Condition: !Not [HasGoogleAuth]
+    Condition: NoGoogleAuth
     DependsOn:
       - UserPool
     Properties:
