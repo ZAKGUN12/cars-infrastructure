@@ -5,6 +5,14 @@ Parameters:
   Environment:
     Type: String
     Default: prod
+  EnableGoogleAuth:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable Google OAuth authentication
+
+Conditions:
+  HasGoogleAuth: !Equals [!Ref EnableGoogleAuth, 'true']
 
 Resources:
   UserPool:
@@ -27,6 +35,39 @@ Resources:
           AttributeDataType: String
           Required: true
           Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: picture
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+
+  # Google Identity Provider (conditional)
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGoogleAuth
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: '{{resolve:ssm:/vehicle-guesser/google/client-id}}'
+        client_secret: '{{resolve:ssm:/vehicle-guesser/google/client-secret}}' 
+        authorize_scopes: 'email openid profile'
+      AttributeMapping:
+        email: email
+        name: name
+        picture: picture
+        preferred_username: email
+
+  # User Pool Domain for Hosted UI
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub 'vehicle-guesser-${Environment}-${AWS::AccountId}'
+      UserPoolId: !Ref UserPool
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -37,6 +78,22 @@ Resources:
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO_USER_POOLS
+        - !If [HasGoogleAuth, Google, !Ref 'AWS::NoValue']
+      CallbackURLs:
+        - 'https://dw78cwmd7ajty.cloudfront.net'
+        - 'http://localhost:5173'
+      LogoutURLs:
+        - 'https://dw78cwmd7ajty.cloudfront.net'
+        - 'http://localhost:5173'
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
       TokenValidityUnits:
         AccessToken: hours
         IdToken: hours
@@ -57,3 +114,9 @@ Outputs:
     Value: !Ref UserPoolClient
     Export:
       Name: !Sub '${AWS::StackName}-UserPoolClientId'
+  
+  UserPoolDomain:
+    Description: Cognito Hosted UI Domain
+    Value: !Sub 'https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolDomain'
