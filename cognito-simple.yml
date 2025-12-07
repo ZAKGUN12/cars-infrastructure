@@ -23,6 +23,10 @@ Parameters:
     Default: ''
     NoEcho: true
     Description: Google OAuth Client Secret
+  GameDataTableName:
+    Type: String
+    Default: ''
+    Description: Game data table name from backend stack
 
 Conditions:
   HasGoogleAuth: !And
@@ -73,6 +77,12 @@ Resources:
       Role: !GetAtt AccountLinkingRole.Arn
       Code:
         ZipFile: |
+          const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+          const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+          
+          const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-west-1' });
+          const dynamodb = DynamoDBDocumentClient.from(client);
+          
           exports.handler = async (event) => {
               console.log('Pre-signup trigger event:', JSON.stringify(event, null, 2));
               
@@ -84,6 +94,38 @@ Resources:
               try {
                   if (!email) {
                       throw new Error('Email is required');
+                  }
+                  
+                  // Check if email already exists in game data table
+                  try {
+                      const existingUsers = await dynamodb.send(new ScanCommand({
+                          TableName: process.env.GAME_DATA_TABLE,
+                          FilterExpression: '#profile.#email = :email',
+                          ExpressionAttributeNames: {
+                              '#profile': 'profile',
+                              '#email': 'email'
+                          },
+                          ExpressionAttributeValues: {
+                              ':email': email.toLowerCase()
+                          }
+                      }));
+                      
+                      if (existingUsers.Items && existingUsers.Items.length > 0) {
+                          const existingUser = existingUsers.Items[0];
+                          const existingAuthMethod = existingUser.profile?.authMethod;
+                          const isGoogleSignup = triggerSource === 'PreSignUp_ExternalProvider';
+                          const currentAuthMethod = isGoogleSignup ? 'google' : 'email';
+                          
+                          if (existingAuthMethod && existingAuthMethod !== currentAuthMethod) {
+                              const errorMsg = existingAuthMethod === 'google' 
+                                  ? 'This email is already registered with Google. Please use Google Sign-In.'
+                                  : 'This email is already registered with email/password. Please use regular login.';
+                              throw new Error(errorMsg);
+                          }
+                      }
+                  } catch (scanError) {
+                      console.warn('Could not check existing users:', scanError.message);
+                      // Continue with signup if scan fails
                   }
                   
                   // For regular signup, require username
@@ -109,6 +151,9 @@ Resources:
                   throw error;
               }
           };
+      Environment:
+        Variables:
+          GAME_DATA_TABLE: !Sub 'vehicle-guesser-gamedata-${Environment}'
       Timeout: 30
 
 
@@ -136,6 +181,10 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-gamedata-${Environment}'
 
 
   # Lambda permission for Cognito
