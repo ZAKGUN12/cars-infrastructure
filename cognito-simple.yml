@@ -26,6 +26,97 @@ Conditions:
     - !Not [!Equals [!Ref GoogleClientId, '']]
 
 Resources:
+  # Lambda function for account linking
+  AccountLinkingFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'vehicle-guesser-account-linking-${Environment}'
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt AccountLinkingRole.Arn
+      Code:
+        ZipFile: |
+          const { CognitoIdentityProviderClient, AdminGetUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
+          
+          const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
+          
+          exports.handler = async (event) => {
+              console.log('Pre-signup trigger event:', JSON.stringify(event, null, 2));
+              
+              try {
+                  const { userPoolId, triggerSource, request } = event;
+                  const { userAttributes } = request;
+                  const email = userAttributes.email;
+                  
+                  // Only handle external provider signups
+                  if (triggerSource === 'PreSignUp_ExternalProvider') {
+                      console.log('External provider signup detected for email:', email);
+                      
+                      try {
+                          // Check if user already exists with this email
+                          await cognitoClient.send(new AdminGetUserCommand({
+                              UserPoolId: userPoolId,
+                              Username: email
+                          }));
+                          
+                          console.log('Found existing user with email:', email);
+                          
+                          // Prevent creating duplicate user
+                          throw new Error('An account with this email already exists. Please sign in with your email and password instead.');
+                          
+                      } catch (getUserError) {
+                          if (getUserError.name === 'UserNotFoundException') {
+                              console.log('No existing user found, allowing signup');
+                              // Allow normal signup process
+                          } else {
+                              console.error('Error during account check:', getUserError);
+                              throw getUserError;
+                          }
+                      }
+                  }
+                  
+                  return event;
+                  
+              } catch (error) {
+                  console.error('Pre-signup trigger error:', error);
+                  throw error;
+              }
+          };
+      Timeout: 30
+
+  # IAM Role for Lambda
+  AccountLinkingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CognitoAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminLinkProviderForUser
+                Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+
+  # Lambda permission for Cognito
+  CognitoLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AccountLinkingFunction
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -33,6 +124,8 @@ Resources:
       UsernameAttributes:
         - email
       AutoVerifiedAttributes:
+        - email
+      AliasAttributes:
         - email
       Policies:
         PasswordPolicy:
@@ -54,6 +147,8 @@ Resources:
           AttributeDataType: String
           Required: false
           Mutable: true
+      LambdaConfig:
+        PreSignUp: !GetAtt AccountLinkingFunction.Arn
 
   # Google Identity Provider (conditional)
   GoogleIdentityProvider:
@@ -72,6 +167,7 @@ Resources:
         name: name
         picture: picture
         preferred_username: email
+        username: sub
 
   # User Pool Domain for Hosted UI
   UserPoolDomain:
