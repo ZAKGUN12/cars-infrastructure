@@ -73,16 +73,43 @@ Resources:
       Role: !GetAtt AccountLinkingRole.Arn
       Code:
         ZipFile: |
+          const https = require('https');
+          
           exports.handler = async (event) => {
               console.log('Pre-signup trigger event:', JSON.stringify(event, null, 2));
               
-              const { triggerSource, request } = event;
+              const { userPoolId, triggerSource, request } = event;
               const { userAttributes } = request;
+              const email = userAttributes.email;
+              const username = userAttributes.preferred_username;
               
-              // For now, allow all signups - validation will be handled in backend API
-              console.log('Allowing signup for:', userAttributes.email, 'via', triggerSource);
-              
-              return event;
+              try {
+                  if (!email) {
+                      throw new Error('Email is required');
+                  }
+                  
+                  // For regular signup, require username
+                  if (triggerSource === 'PreSignUp_SignUp') {
+                      if (!username) {
+                          throw new Error('Username is required');
+                      }
+                      
+                      // Validate username format
+                      if (username.length < 3 || username.length > 20) {
+                          throw new Error('Username must be 3-20 characters');
+                      }
+                      
+                      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                          throw new Error('Username can only contain letters, numbers, and underscores');
+                      }
+                  }
+                  
+                  console.log('Signup validation passed for:', email, 'via', triggerSource);
+                  return event;
+              } catch (error) {
+                  console.error('Pre-signup validation error:', error);
+                  throw error;
+              }
           };
       Timeout: 30
 
