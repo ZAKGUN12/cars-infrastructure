@@ -124,8 +124,13 @@ Resources:
                           }
                       }
                   } catch (scanError) {
+                      // If the error is about conflicting auth methods, throw it to prevent signup
+                      if (scanError.message.includes('already registered with')) {
+                          console.error('Email conflict detected:', scanError.message);
+                          throw scanError;
+                      }
                       console.warn('Could not check existing users:', scanError.message);
-                      // Continue with signup if scan fails
+                      // Continue with signup if scan fails for other reasons
                   }
                   
                   // For regular signup, require username
