@@ -11,6 +11,19 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Handle Failed Cognito Stack
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: eu-west-1
+      run: |
+        STACK_STATUS=$(aws cloudformation describe-stacks --stack-name vehicle-guesser-cognito --query 'Stacks[0].StackStatus' --output text --region eu-west-1 2>/dev/null || echo "DOES_NOT_EXIST")
+        if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STACK_STATUS" = "CREATE_FAILED" ] || [ "$STACK_STATUS" = "UPDATE_ROLLBACK_COMPLETE" ]; then
+          echo "⚠️ Deleting failed Cognito stack: $STACK_STATUS"
+          aws cloudformation delete-stack --stack-name vehicle-guesser-cognito --region eu-west-1
+          aws cloudformation wait stack-delete-complete --stack-name vehicle-guesser-cognito --region eu-west-1
+        fi
+    
     - name: Deploy Cognito User Pool
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -22,7 +35,7 @@ jobs:
           --stack-name vehicle-guesser-cognito \
           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
           --region eu-west-1 \
-          --parameter-overrides Environment=prod
+          --parameter-overrides Environment=prod EnableGoogleAuth=true
     
     - name: Get Cognito User Pool ID
       env:
