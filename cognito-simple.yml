@@ -73,90 +73,19 @@ Resources:
       Role: !GetAtt AccountLinkingRole.Arn
       Code:
         ZipFile: |
-          const AWS = require('aws-sdk');
-          const dynamodb = new AWS.DynamoDB.DocumentClient();
-          const cognito = new AWS.CognitoIdentityServiceProvider();
-          
           exports.handler = async (event) => {
               console.log('Pre-signup trigger event:', JSON.stringify(event, null, 2));
               
-              const { userPoolId, triggerSource, request } = event;
+              const { triggerSource, request } = event;
               const { userAttributes } = request;
-              const email = userAttributes.email;
-              const username = userAttributes.preferred_username;
               
-              try {
-                  if (!email) {
-                      throw new Error('Email is required');
-                  }
-                  
-                  // Check if email already exists in Cognito
-                  try {
-                      await cognito.adminGetUser({
-                          UserPoolId: userPoolId,
-                          Username: email
-                      }).promise();
-                      
-                      throw new Error('An account with this email already exists');
-                  } catch (error) {
-                      if (error.code !== 'UserNotFoundException') {
-                          throw error;
-                      }
-                  }
-                  
-                  // For regular signup, require username
-                  if (triggerSource === 'PreSignUp_SignUp') {
-                      if (!username) {
-                          throw new Error('Username is required');
-                      }
-                      
-                      // Check if username already exists
-                      const existingUsername = await dynamodb.get({
-                          TableName: process.env.USERNAME_TABLE,
-                          Key: { username: username }
-                      }).promise();
-                      
-                      if (existingUsername.Item) {
-                          throw new Error('Username already taken');
-                      }
-                      
-                      // Store username
-                      await dynamodb.put({
-                          TableName: process.env.USERNAME_TABLE,
-                          Item: {
-                              username: username,
-                              email: email,
-                              userId: userAttributes.sub,
-                              createdAt: new Date().toISOString()
-                          }
-                      }).promise();
-                  }
-                  
-                  // For Google OAuth, store linking data (username will be collected later)
-                  if (triggerSource === 'PreSignUp_ExternalProvider') {
-                      await dynamodb.put({
-                          TableName: process.env.USER_LINKING_TABLE,
-                          Item: {
-                              email: email,
-                              googleSub: userAttributes.sub,
-                              authProvider: 'google',
-                              linkedAt: new Date().toISOString(),
-                              usernameRequired: true
-                          }
-                      }).promise();
-                  }
-                  
-                  return event;
-              } catch (error) {
-                  console.error('Pre-signup validation error:', error);
-                  throw error;
-              }
+              // For now, allow all signups - validation will be handled in backend API
+              console.log('Allowing signup for:', userAttributes.email, 'via', triggerSource);
+              
+              return event;
           };
       Timeout: 30
-      Environment:
-        Variables:
-          USER_LINKING_TABLE: !Ref UserLinkingTable
-          USERNAME_TABLE: !Ref UsernameTable
+
 
   # IAM Role for Lambda
   AccountLinkingRole:
@@ -172,27 +101,16 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: CognitoAccess
+        - PolicyName: BasicExecution
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - cognito-idp:AdminGetUser
-                  - cognito-idp:AdminLinkProviderForUser
-                Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
-        - PolicyName: DynamoDBAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:PutItem
-                  - dynamodb:GetItem
-                  - dynamodb:Query
-                Resource: 
-                  - !GetAtt UserLinkingTable.Arn
-                  - !GetAtt UsernameTable.Arn
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
 
   # Lambda permission for Cognito
   CognitoLambdaPermission:
