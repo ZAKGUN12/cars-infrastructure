@@ -73,7 +73,8 @@ Resources:
       Role: !GetAtt AccountLinkingRole.Arn
       Code:
         ZipFile: |
-          const https = require('https');
+          const AWS = require('aws-sdk');
+          const cognito = new AWS.CognitoIdentityServiceProvider();
           
           exports.handler = async (event) => {
               console.log('Pre-signup trigger event:', JSON.stringify(event, null, 2));
@@ -86,6 +87,25 @@ Resources:
               try {
                   if (!email) {
                       throw new Error('Email is required');
+                  }
+                  
+                  // Check if email already exists (for both regular and Google users)
+                  try {
+                      const listUsersParams = {
+                          UserPoolId: userPoolId,
+                          Filter: `email = "${email}"`
+                      };
+                      
+                      const existingUsers = await cognito.listUsers(listUsersParams).promise();
+                      
+                      if (existingUsers.Users && existingUsers.Users.length > 0) {
+                          throw new Error('An account with this email already exists');
+                      }
+                  } catch (error) {
+                      if (error.message.includes('already exists')) {
+                          throw error;
+                      }
+                      console.warn('Error checking existing users:', error.message);
                   }
                   
                   // For regular signup, require username
@@ -138,6 +158,14 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: '*'
+        - PolicyName: CognitoAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:ListUsers
+                Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
 
   # Lambda permission for Cognito
   CognitoLambdaPermission:
