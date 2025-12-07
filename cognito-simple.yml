@@ -5,6 +5,10 @@ Parameters:
   Environment:
     Type: String
     Default: prod
+  AppId:
+    Type: String
+    Default: 'com.zekscaler.vehicleguesser'
+    Description: Mobile app bundle identifier
   EnableGoogleAuth:
     Type: String
     Default: 'true'
@@ -161,10 +165,12 @@ Resources:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
         - 'http://localhost:5174'
+        - !Sub '${AppId}://'
       LogoutURLs:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
         - 'http://localhost:5174'
+        - !Sub '${AppId}://'
       AllowedOAuthFlows:
         - code
       AllowedOAuthScopes:
@@ -198,10 +204,12 @@ Resources:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
         - 'http://localhost:5174'
+        - !Sub '${AppId}://'
       LogoutURLs:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
         - 'http://localhost:5174'
+        - !Sub '${AppId}://'
       AllowedOAuthFlows:
         - code
       AllowedOAuthScopes:
