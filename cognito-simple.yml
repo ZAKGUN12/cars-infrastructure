@@ -95,8 +95,8 @@ Resources:
         - ALLOW_REFRESH_TOKEN_AUTH
       SupportedIdentityProviders: !If
         - HasGoogleAuth
-        - [COGNITO_USER_POOLS, Google]
-        - [COGNITO_USER_POOLS]
+        - [COGNITO, Google]
+        - [COGNITO]
       CallbackURLs:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
