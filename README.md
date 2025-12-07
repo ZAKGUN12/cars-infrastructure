@@ -26,4 +26,4 @@ aws cloudformation deploy \
   --stack-name vehicle-guesser-backend \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides UserPoolId=<COGNITO_POOL_ID>
-```
+```# Updated with Google OAuth secrets
