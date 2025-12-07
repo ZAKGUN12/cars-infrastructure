@@ -50,6 +50,19 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  # DynamoDB table for username uniqueness
+  UsernameTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'vehicle-guesser-usernames-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+
   # Lambda function for account linking
   AccountLinkingFunction:
     Type: AWS::Lambda::Function
@@ -69,42 +82,81 @@ Resources:
               
               const { userPoolId, triggerSource, request } = event;
               const { userAttributes } = request;
+              const email = userAttributes.email;
+              const username = userAttributes.preferred_username;
               
               try {
-                  if (triggerSource === 'PreSignUp_ExternalProvider') {
-                      const email = userAttributes.email;
-                      
-                      if (!email) {
-                          throw new Error('Email is required');
-                      }
-                      
-                      // Store account linking info in DynamoDB
-                      const linkingData = {
-                          email: email,
-                          googleSub: userAttributes.sub,
-                          authProvider: 'google',
-                          linkedAt: new Date().toISOString()
-                      };
-                      
-                      await dynamodb.put({
-                          TableName: process.env.USER_LINKING_TABLE || 'vehicle-guesser-user-linking',
-                          Item: linkingData
+                  if (!email) {
+                      throw new Error('Email is required');
+                  }
+                  
+                  // Check if email already exists in Cognito
+                  try {
+                      await cognito.adminGetUser({
+                          UserPoolId: userPoolId,
+                          Username: email
                       }).promise();
                       
-                      console.log('Stored Google OAuth linking data for:', email);
+                      throw new Error('An account with this email already exists');
+                  } catch (error) {
+                      if (error.code !== 'UserNotFoundException') {
+                          throw error;
+                      }
+                  }
+                  
+                  // For regular signup, require username
+                  if (triggerSource === 'PreSignUp_SignUp') {
+                      if (!username) {
+                          throw new Error('Username is required');
+                      }
+                      
+                      // Check if username already exists
+                      const existingUsername = await dynamodb.get({
+                          TableName: process.env.USERNAME_TABLE,
+                          Key: { username: username }
+                      }).promise();
+                      
+                      if (existingUsername.Item) {
+                          throw new Error('Username already taken');
+                      }
+                      
+                      // Store username
+                      await dynamodb.put({
+                          TableName: process.env.USERNAME_TABLE,
+                          Item: {
+                              username: username,
+                              email: email,
+                              userId: userAttributes.sub,
+                              createdAt: new Date().toISOString()
+                          }
+                      }).promise();
+                  }
+                  
+                  // For Google OAuth, store linking data (username will be collected later)
+                  if (triggerSource === 'PreSignUp_ExternalProvider') {
+                      await dynamodb.put({
+                          TableName: process.env.USER_LINKING_TABLE,
+                          Item: {
+                              email: email,
+                              googleSub: userAttributes.sub,
+                              authProvider: 'google',
+                              linkedAt: new Date().toISOString(),
+                              usernameRequired: true
+                          }
+                      }).promise();
                   }
                   
                   return event;
               } catch (error) {
-                  console.error('Account linking error:', error);
-                  // Don't fail signup on linking errors
-                  return event;
+                  console.error('Pre-signup validation error:', error);
+                  throw error;
               }
           };
       Timeout: 30
       Environment:
         Variables:
           USER_LINKING_TABLE: !Ref UserLinkingTable
+          USERNAME_TABLE: !Ref UsernameTable
 
   # IAM Role for Lambda
   AccountLinkingRole:
@@ -138,7 +190,9 @@ Resources:
                   - dynamodb:PutItem
                   - dynamodb:GetItem
                   - dynamodb:Query
-                Resource: !GetAtt UserLinkingTable.Arn
+                Resource: 
+                  - !GetAtt UserLinkingTable.Arn
+                  - !GetAtt UsernameTable.Arn
 
   # Lambda permission for Cognito
   CognitoLambdaPermission:
