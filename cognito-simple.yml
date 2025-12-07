@@ -10,9 +10,20 @@ Parameters:
     Default: 'true'
     AllowedValues: ['true', 'false']
     Description: Enable Google OAuth authentication
+  GoogleClientId:
+    Type: String
+    Default: ''
+    Description: Google OAuth Client ID
+  GoogleClientSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Google OAuth Client Secret
 
 Conditions:
-  HasGoogleAuth: !Equals [!Ref EnableGoogleAuth, 'true']
+  HasGoogleAuth: !And
+    - !Equals [!Ref EnableGoogleAuth, 'true']
+    - !Not [!Equals [!Ref GoogleClientId, '']]
 
 Resources:
   UserPool:
@@ -53,8 +64,8 @@ Resources:
       ProviderName: Google
       ProviderType: Google
       ProviderDetails:
-        client_id: '{{resolve:ssm:/vehicle-guesser/google/client-id}}'
-        client_secret: '{{resolve:ssm:/vehicle-guesser/google/client-secret}}' 
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
         authorize_scopes: 'email openid profile'
       AttributeMapping:
         email: email

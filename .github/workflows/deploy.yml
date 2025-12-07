@@ -35,7 +35,11 @@ jobs:
           --stack-name vehicle-guesser-cognito \
           --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
           --region eu-west-1 \
-          --parameter-overrides Environment=prod EnableGoogleAuth=true
+          --parameter-overrides \
+            Environment=prod \
+            EnableGoogleAuth=true \
+            GoogleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            GoogleClientSecret="${{ secrets.GOOGLE_CLIENT_SECRET }}"
     
     - name: Get Cognito User Pool ID
       env:
