@@ -14,11 +14,14 @@ AWS CloudFormation templates for Vehicle Guesser infrastructure.
 
 ## Manual Deployment
 ```bash
-# Deploy Cognito
+# Deploy Cognito with existing secrets
 aws cloudformation deploy \
   --template-file cognito-simple.yml \
   --stack-name vehicle-guesser-cognito \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_IAM \
+  --parameter-overrides \
+    EnableGoogleAuth=true \
+    GoogleOAuthSecretName=vehicle-guesser-google-oauth-prod
 
 # Deploy Backend
 aws cloudformation deploy \

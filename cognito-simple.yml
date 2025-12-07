@@ -14,28 +14,18 @@ Parameters:
     Default: 'true'
     AllowedValues: ['true', 'false']
     Description: Enable Google OAuth authentication
-  GoogleClientId:
+  GoogleOAuthSecretName:
     Type: String
-    Default: ''
-    Description: Google OAuth Client ID
-  GoogleClientSecret:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: Google OAuth Client Secret
+    Default: 'vehicle-guesser-google-oauth-prod'
+    Description: Name of secret containing Google OAuth credentials
   GameDataTableName:
     Type: String
     Default: ''
     Description: Game data table name from backend stack
 
 Conditions:
-  HasGoogleAuth: !And
-    - !Equals [!Ref EnableGoogleAuth, 'true']
-    - !Not [!Equals [!Ref GoogleClientId, '']]
-  NoGoogleAuth: !Not
-    - !And
-      - !Equals [!Ref EnableGoogleAuth, 'true']
-      - !Not [!Equals [!Ref GoogleClientId, '']]
+  HasGoogleAuth: !Equals [!Ref EnableGoogleAuth, 'true']
+  NoGoogleAuth: !Not [!Equals [!Ref EnableGoogleAuth, 'true']]
 
 Resources:
   # DynamoDB table for user account linking
@@ -190,6 +180,11 @@ Resources:
                 Action:
                   - dynamodb:Scan
                 Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-gamedata-${Environment}'
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${GoogleOAuthSecretName}*'
 
 
   # Lambda permission for Cognito
@@ -245,8 +240,8 @@ Resources:
       ProviderName: Google
       ProviderType: Google
       ProviderDetails:
-        client_id: !Ref GoogleClientId
-        client_secret: !Ref GoogleClientSecret
+        client_id: !Sub '{{resolve:secretsmanager:${GoogleOAuthSecretName}:SecretString:client_id}}'
+        client_secret: !Sub '{{resolve:secretsmanager:${GoogleOAuthSecretName}:SecretString:client_secret}}'
         authorize_scopes: 'email openid profile'
       AttributeMapping:
         email: email
