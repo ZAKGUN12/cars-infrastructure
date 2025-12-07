@@ -70,7 +70,7 @@ Resources:
           const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
           const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
           
-          const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'eu-west-1' });
+          const client = new DynamoDBClient({ region: 'eu-west-1' });
           const dynamodb = DynamoDBDocumentClient.from(client);
           
           exports.handler = async (event) => {
