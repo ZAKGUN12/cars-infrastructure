@@ -76,12 +76,16 @@ Resources:
   # User Pool Domain for Hosted UI
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
+    DependsOn:
+      - UserPool
     Properties:
       Domain: !Sub 'vehicle-guesser-${Environment}-${AWS::AccountId}'
       UserPoolId: !Ref UserPool
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    DependsOn:
+      - UserPool
     Properties:
       ClientName: !Sub 'vehicle-guesser-client-${Environment}'
       UserPoolId: !Ref UserPool
@@ -89,9 +93,10 @@ Resources:
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
-      SupportedIdentityProviders:
-        - COGNITO_USER_POOLS
-        - !If [HasGoogleAuth, Google, !Ref 'AWS::NoValue']
+      SupportedIdentityProviders: !If
+        - HasGoogleAuth
+        - [COGNITO_USER_POOLS, Google]
+        - [COGNITO_USER_POOLS]
       CallbackURLs:
         - 'https://dw78cwmd7ajty.cloudfront.net'
         - 'http://localhost:5173'
