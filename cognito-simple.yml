@@ -34,6 +34,22 @@ Conditions:
       - !Not [!Equals [!Ref GoogleClientId, '']]
 
 Resources:
+  # DynamoDB table for user account linking
+  UserLinkingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'vehicle-guesser-user-linking-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   # Lambda function for account linking
   AccountLinkingFunction:
     Type: AWS::Lambda::Function
@@ -44,20 +60,51 @@ Resources:
       Role: !GetAtt AccountLinkingRole.Arn
       Code:
         ZipFile: |
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          const cognito = new AWS.CognitoIdentityServiceProvider();
+          
           exports.handler = async (event) => {
               console.log('Pre-signup trigger event:', JSON.stringify(event, null, 2));
               
-              // Check if user is signing up via Google OAuth
-              if (event.triggerSource === 'PreSignUp_ExternalProvider') {
-                  // For Google OAuth users, require username to be provided
-                  if (!event.request.userAttributes.preferred_username) {
-                      throw new Error('Username is required for social login');
-                  }
-              }
+              const { userPoolId, triggerSource, request } = event;
+              const { userAttributes } = request;
               
-              return event;
+              try {
+                  if (triggerSource === 'PreSignUp_ExternalProvider') {
+                      const email = userAttributes.email;
+                      
+                      if (!email) {
+                          throw new Error('Email is required');
+                      }
+                      
+                      // Store account linking info in DynamoDB
+                      const linkingData = {
+                          email: email,
+                          googleSub: userAttributes.sub,
+                          authProvider: 'google',
+                          linkedAt: new Date().toISOString()
+                      };
+                      
+                      await dynamodb.put({
+                          TableName: process.env.USER_LINKING_TABLE || 'vehicle-guesser-user-linking',
+                          Item: linkingData
+                      }).promise();
+                      
+                      console.log('Stored Google OAuth linking data for:', email);
+                  }
+                  
+                  return event;
+              } catch (error) {
+                  console.error('Account linking error:', error);
+                  // Don't fail signup on linking errors
+                  return event;
+              }
           };
       Timeout: 30
+      Environment:
+        Variables:
+          USER_LINKING_TABLE: !Ref UserLinkingTable
 
   # IAM Role for Lambda
   AccountLinkingRole:
@@ -82,6 +129,16 @@ Resources:
                   - cognito-idp:AdminGetUser
                   - cognito-idp:AdminLinkProviderForUser
                 Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                Resource: !GetAtt UserLinkingTable.Arn
 
   # Lambda permission for Cognito
   CognitoLambdaPermission:
