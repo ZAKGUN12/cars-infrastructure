@@ -39,7 +39,11 @@ jobs:
             Environment=prod \
             EnableGoogleAuth=true \
             GoogleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            GoogleClientSecret="${{ secrets.GOOGLE_CLIENT_SECRET }}"
+            GoogleClientSecret="${{ secrets.GOOGLE_CLIENT_SECRET }}" || {
+          echo "❌ Cognito deployment failed. Checking events..."
+          aws cloudformation describe-stack-events --stack-name vehicle-guesser-cognito --region eu-west-1 --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' --output table
+          exit 1
+        }
     
     - name: Get Cognito User Pool ID
       env:
