@@ -47,8 +47,14 @@ Resources:
           exports.handler = async (event) => {
               console.log('Pre-signup trigger event:', JSON.stringify(event, null, 2));
               
-              // For now, just allow all signups
-              // TODO: Add account linking logic
+              // Check if user is signing up via Google OAuth
+              if (event.triggerSource === 'PreSignUp_ExternalProvider') {
+                  // For Google OAuth users, require username to be provided
+                  if (!event.request.userAttributes.preferred_username) {
+                      throw new Error('Username is required for social login');
+                  }
+              }
+              
               return event;
           };
       Timeout: 30
@@ -114,6 +120,10 @@ Resources:
           AttributeDataType: String
           Required: false
           Mutable: true
+        - Name: preferred_username
+          AttributeDataType: String
+          Required: false
+          Mutable: true
       LambdaConfig:
         PreSignUp: !GetAtt AccountLinkingFunction.Arn
 
@@ -133,7 +143,7 @@ Resources:
         email: email
         name: name
         picture: picture
-        preferred_username: email
+        preferred_username: preferred_username
         username: sub
 
   # User Pool Domain for Hosted UI
