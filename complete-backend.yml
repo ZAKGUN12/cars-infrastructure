@@ -95,12 +95,24 @@ Resources:
                 };
               }
           
-              const userId = event.requestContext?.authorizer?.claims?.sub;
+              // Extract user ID from JWT token
+              let userId = null;
+              const authHeader = event.headers?.Authorization || event.headers?.authorization;
+              if (authHeader && authHeader.startsWith('Bearer ')) {
+                try {
+                  const token = authHeader.substring(7);
+                  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+                  userId = payload.sub;
+                } catch (error) {
+                  console.error('Token decode error:', error);
+                }
+              }
+              
               if (!userId) {
                 return {
                   statusCode: 401,
                   headers: corsHeaders,
-                  body: JSON.stringify({ error: 'Unauthorized' })
+                  body: JSON.stringify({ error: 'Unauthorized - valid token required' })
                 };
               }
           
@@ -460,8 +472,7 @@ Resources:
       RestApiId: !Ref ApiGateway
       ResourceId: !Ref GameDataResource
       HttpMethod: GET
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
+      AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -473,8 +484,7 @@ Resources:
       RestApiId: !Ref ApiGateway
       ResourceId: !Ref GameDataResource
       HttpMethod: POST
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
+      AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
