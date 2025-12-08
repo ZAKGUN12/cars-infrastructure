@@ -448,6 +448,13 @@ Resources:
       ParentId: !GetAtt ApiGateway.RootResourceId
       PathPart: check-username
 
+  SetupUsernameResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: setup-username
+
   # API Gateway Methods
   GameDataGetMethod:
     Type: AWS::ApiGateway::Method
@@ -558,6 +565,30 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiLambdaFunction.Arn}/invocations'
 
+  SetupUsernamePostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref SetupUsernameResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiLambdaFunction.Arn}/invocations'
+
+  SetupUsernameOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref SetupUsernameResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiLambdaFunction.Arn}/invocations'
+
   # Lambda Permissions
   ApiGatewayInvokePermission:
     Type: AWS::Lambda::Permission
@@ -580,6 +611,8 @@ Resources:
       - ImagesOptionsMethod
       - CheckUsernamePostMethod
       - CheckUsernameOptionsMethod
+      - SetupUsernamePostMethod
+      - SetupUsernameOptionsMethod
     Properties:
       RestApiId: !Ref ApiGateway
       StageName: !Ref Environment
