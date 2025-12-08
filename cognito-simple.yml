@@ -16,7 +16,7 @@ Parameters:
     Description: Enable Google OAuth authentication
   GoogleOAuthSecretName:
     Type: String
-    Default: 'vehicle-guesser-google-oauth-prod-jR3mey'
+    Default: 'vehicle-guesser-google-oauth-prod'
     Description: Name of secret containing Google OAuth credentials
   GameDataTableName:
     Type: String
