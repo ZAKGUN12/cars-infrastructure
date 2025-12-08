@@ -64,7 +64,7 @@ Resources:
     Properties:
       FunctionName: !Sub 'vehicle-guesser-api-${Environment}'
       Runtime: nodejs18.x
-      Handler: cognito-index.handler
+      Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ZipFile: |
