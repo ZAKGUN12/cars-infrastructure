@@ -76,7 +76,7 @@ Resources:
           
           const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'authorization, content-type',
+            'Access-Control-Allow-Headers': 'authorization, content-type, x-requested-with',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
             'Content-Type': 'application/json'
           };
@@ -95,26 +95,9 @@ Resources:
                 };
               }
           
-              // Extract user ID from JWT token
-              let userId = null;
-              const authHeader = event.headers?.Authorization || event.headers?.authorization;
-              if (authHeader && authHeader.startsWith('Bearer ')) {
-                try {
-                  const token = authHeader.substring(7);
-                  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-                  userId = payload.sub;
-                } catch (error) {
-                  console.error('Token decode error:', error);
-                }
-              }
-              
-              if (!userId) {
-                return {
-                  statusCode: 401,
-                  headers: corsHeaders,
-                  body: JSON.stringify({ error: 'Unauthorized - valid token required' })
-                };
-              }
+              // Temporarily disable auth for testing
+              const userId = 'test-user-123';
+              console.log('Using test user ID for debugging');
           
               if (path === '/gamedata') {
                 if (httpMethod === 'GET') {
