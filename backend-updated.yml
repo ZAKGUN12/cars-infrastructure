@@ -5,6 +5,10 @@ Parameters:
   Environment:
     Type: String
     Default: prod
+  UserPoolId:
+    Type: String
+    Default: eu-west-1_tAV1AUgsJ
+    Description: Cognito User Pool ID
 
 Resources:
   # DynamoDB Tables
@@ -100,6 +104,17 @@ Resources:
       EndpointConfiguration:
         Types: [REGIONAL]
 
+  # Cognito Authorizer
+  Authorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: CognitoAuth
+      Type: COGNITO_USER_POOLS
+      IdentitySource: method.request.header.Authorization
+      RestApiId: !Ref Api
+      ProviderARNs:
+        - !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
+
   # Resources
   GameDataResource:
     Type: AWS::ApiGateway::Resource
@@ -122,7 +137,8 @@ Resources:
       RestApiId: !Ref Api
       ResourceId: !Ref GameDataResource
       HttpMethod: GET
-      AuthorizationType: NONE
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -134,7 +150,8 @@ Resources:
       RestApiId: !Ref Api
       ResourceId: !Ref GameDataResource
       HttpMethod: POST
-      AuthorizationType: NONE
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
