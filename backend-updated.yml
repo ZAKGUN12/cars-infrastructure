@@ -11,39 +11,7 @@ Parameters:
     Description: Cognito User Pool ID
 
 Resources:
-  # DynamoDB Tables
-  GameDataTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub 'vehicle-guesser-gamedata-${Environment}'
-      AttributeDefinitions:
-        - AttributeName: userId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: userId
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      SSESpecification:
-        SSEEnabled: true
 
-  ChallengeTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub 'vehicle-guesser-challenges-${Environment}'
-      AttributeDefinitions:
-        - AttributeName: challengeId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: challengeId
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
-      SSESpecification:
-        SSEEnabled: true
 
   # Lambda Role
   LambdaRole:
@@ -72,8 +40,8 @@ Resources:
                   - dynamodb:Scan
                   - dynamodb:Query
                 Resource: 
-                  - !GetAtt GameDataTable.Arn
-                  - !GetAtt ChallengeTable.Arn
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-gamedata-prod'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-challenges-prod'
 
   # Lambda Function
   ApiFunction:
@@ -91,8 +59,8 @@ Resources:
           });
       Environment:
         Variables:
-          GAME_DATA_TABLE: !Ref GameDataTable
-          CHALLENGE_TABLE: !Ref ChallengeTable
+          GAME_DATA_TABLE: vehicle-guesser-gamedata-prod
+          CHALLENGE_TABLE: vehicle-guesser-challenges-prod
           NODE_ENV: !Ref Environment
       Timeout: 30
 
@@ -194,11 +162,6 @@ Outputs:
     Value: !Sub 'https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
     Export:
       Name: !Sub '${AWS::StackName}-ApiUrl'
-  
-  GameDataTable:
-    Value: !Ref GameDataTable
-    Export:
-      Name: !Sub '${AWS::StackName}-GameDataTable'
   
   LambdaFunctionName:
     Value: !Ref ApiFunction
