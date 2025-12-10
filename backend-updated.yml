@@ -7,7 +7,7 @@ Parameters:
     Default: prod
   UserPoolId:
     Type: String
-    Default: eu-west-1_tAV1AUgsJ
+    Default: eu-west-1_D2YA0eyz6
     Description: Cognito User Pool ID
 
 Resources:
