@@ -5,9 +5,6 @@ Parameters:
   Environment:
     Type: String
     Default: prod
-  UserPoolId:
-    Type: String
-    Description: Cognito User Pool ID
 
 Resources:
   # DynamoDB Tables
@@ -92,7 +89,6 @@ Resources:
         Variables:
           GAME_DATA_TABLE: !Ref GameDataTable
           CHALLENGE_TABLE: !Ref ChallengeTable
-          USER_POOL_ID: !Ref UserPoolId
           NODE_ENV: !Ref Environment
       Timeout: 30
 
@@ -104,16 +100,7 @@ Resources:
       EndpointConfiguration:
         Types: [REGIONAL]
 
-  # Cognito Authorizer
-  Authorizer:
-    Type: AWS::ApiGateway::Authorizer
-    Properties:
-      Name: CognitoAuth
-      Type: COGNITO_USER_POOLS
-      IdentitySource: method.request.header.Authorization
-      RestApiId: !Ref Api
-      ProviderARNs:
-        - !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
+
 
   # Resources
   GameDataResource:
