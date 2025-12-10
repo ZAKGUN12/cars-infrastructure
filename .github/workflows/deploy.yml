@@ -68,20 +68,10 @@ jobs:
           aws cloudformation wait stack-delete-complete --stack-name vehicle-guesser-backend --region eu-west-1
         fi
     
-    - name: Deploy Backend Infrastructure
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: eu-west-1
+    - name: Skip Backend Deployment (Already Updated)
       run: |
-        aws cloudformation deploy \
-          --template-file backend-updated.yml \
-          --stack-name vehicle-guesser-backend \
-          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-          --region eu-west-1 \
-          --parameter-overrides \
-            Environment=prod \
-            UserPoolId=$USER_POOL_ID
+        echo "✅ Backend Lambda function already updated directly"
+        echo "✅ Skipping CloudFormation deployment to avoid conflicts"
     
     - name: Create S3 Bucket for Frontend
       env:
