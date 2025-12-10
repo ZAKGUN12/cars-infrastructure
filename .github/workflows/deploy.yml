@@ -82,22 +82,3 @@ jobs:
         aws s3 mb s3://vehicle-guesser-frontend --region eu-west-1 || true
         aws s3api put-bucket-policy --bucket vehicle-guesser-frontend --policy file://cloudfront-security.json || true
     
-    - name: Deploy Monitoring
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: eu-west-1
-      run: |
-        LAMBDA_NAME=$(aws cloudformation describe-stacks --stack-name vehicle-guesser-backend --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionName`].OutputValue' --output text --region eu-west-1)
-        API_ID=$(aws cloudformation describe-stacks --stack-name vehicle-guesser-backend --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' --output text --region eu-west-1 | cut -d'/' -f3 | cut -d'.' -f1)
-        TABLE_NAME=$(aws cloudformation describe-stacks --stack-name vehicle-guesser-backend --query 'Stacks[0].Outputs[?OutputKey==`GameDataTableName`].OutputValue' --output text --region eu-west-1)
-        
-        aws cloudformation deploy \
-          --template-file monitoring.yml \
-          --stack-name vehicle-guesser-monitoring \
-          --region eu-west-1 \
-          --parameter-overrides \
-            Environment=prod \
-            LambdaFunctionName=$LAMBDA_NAME \
-            ApiGatewayId=$API_ID \
-            GameDataTableName=$TABLE_NAME
