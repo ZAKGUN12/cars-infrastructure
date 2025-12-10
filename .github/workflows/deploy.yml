@@ -30,20 +30,28 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: eu-west-1
       run: |
-        aws cloudformation deploy \
-          --template-file cognito-simple.yml \
-          --stack-name vehicle-guesser-cognito \
-          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-          --region eu-west-1 \
-          --parameter-overrides \
-            Environment=prod \
-            EnableGoogleAuth=true \
-            GoogleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            GoogleClientSecret="${{ secrets.GOOGLE_CLIENT_SECRET }}" || {
-          echo "❌ Cognito deployment failed. Checking events..."
-          aws cloudformation describe-stack-events --stack-name vehicle-guesser-cognito --region eu-west-1 --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' --output table
-          exit 1
-        }
+        # Check if stack exists and is in good state
+        STACK_STATUS=$(aws cloudformation describe-stacks --stack-name vehicle-guesser-cognito --query 'Stacks[0].StackStatus' --output text --region eu-west-1 2>/dev/null || echo "DOES_NOT_EXIST")
+        
+        if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLETE" ]; then
+          echo "✅ Cognito stack already exists and is healthy: $STACK_STATUS"
+          echo "✅ Skipping deployment to avoid conflicts"
+        else
+          echo "🚀 Deploying Cognito stack (current status: $STACK_STATUS)"
+          aws cloudformation deploy \
+            --template-file cognito-simple.yml \
+            --stack-name vehicle-guesser-cognito \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --region eu-west-1 \
+            --parameter-overrides \
+              Environment=prod \
+              EnableGoogleAuth=true \
+              GoogleOAuthSecretName=vehicle-guesser-google-oauth-prod-jR3mey || {
+            echo "❌ Cognito deployment failed. Checking events..."
+            aws cloudformation describe-stack-events --stack-name vehicle-guesser-cognito --region eu-west-1 --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' --output table
+            exit 1
+          }
+        fi
     
     - name: Get Cognito User Pool ID
       env:
