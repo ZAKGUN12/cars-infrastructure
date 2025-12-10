@@ -588,4 +588,4 @@ Outputs:
     Description: Challenge DynamoDB Table Name
     Value: !Ref ChallengeTable
     Export:
-      Name: !Sub '${AWS::StackName}-ChallengeTable'
+      Name: !Sub '${AWS::StackName}-ChallengeTableName'
