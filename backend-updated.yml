@@ -110,6 +110,13 @@ Resources:
       ParentId: !GetAtt Api.RootResourceId
       PathPart: get-challenge
 
+  MyChallengesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: my-challenges
+
   # Methods
   GameDataGet:
     Type: AWS::ApiGateway::Method
@@ -175,6 +182,19 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
+  MyChallengesGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref MyChallengesResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   # Lambda Permission
   LambdaPermission:
     Type: AWS::Lambda::Permission
@@ -193,6 +213,7 @@ Resources:
       - LeaderboardGet
       - CreateChallengePost
       - GetChallengePost
+      - MyChallengesGet
     Properties:
       RestApiId: !Ref Api
       StageName: !Ref Environment
