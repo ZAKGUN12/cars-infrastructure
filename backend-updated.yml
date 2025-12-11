@@ -11,27 +11,6 @@ Parameters:
     Description: Cognito User Pool ID
 
 Resources:
-  # DynamoDB Tables
-  ChallengeTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: vehicle-guesser-challenges-prod
-      AttributeDefinitions:
-        - AttributeName: challengeId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: challengeId
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Application
-          Value: VehicleGuesser
-
   # Lambda Role
   LambdaRole:
     Type: AWS::IAM::Role
