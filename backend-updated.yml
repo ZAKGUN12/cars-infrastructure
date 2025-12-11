@@ -11,7 +11,26 @@ Parameters:
     Description: Cognito User Pool ID
 
 Resources:
-
+  # DynamoDB Tables
+  ChallengeTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vehicle-guesser-challenges-prod
+      AttributeDefinitions:
+        - AttributeName: challengeId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: challengeId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: VehicleGuesser
 
   # Lambda Role
   LambdaRole:
@@ -98,6 +117,20 @@ Resources:
       ParentId: !GetAtt Api.RootResourceId
       PathPart: leaderboard
 
+  CreateChallengeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: create-challenge
+
+  GetChallengeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: get-challenge
+
   # Methods
   GameDataGet:
     Type: AWS::ApiGateway::Method
@@ -137,6 +170,32 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
+  CreateChallengePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref CreateChallengeResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  GetChallengePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref GetChallengeResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   # Lambda Permission
   LambdaPermission:
     Type: AWS::Lambda::Permission
@@ -153,6 +212,8 @@ Resources:
       - GameDataGet
       - GameDataPost
       - LeaderboardGet
+      - CreateChallengePost
+      - GetChallengePost
     Properties:
       RestApiId: !Ref Api
       StageName: !Ref Environment
