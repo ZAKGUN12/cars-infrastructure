@@ -59,6 +59,8 @@ Resources:
         Variables:
           GAME_DATA_TABLE: vehicle-guesser-gamedata-prod
           CHALLENGE_TABLE: vehicle-guesser-challenges-prod
+          CONNECTIONS_TABLE: vehicle-guesser-connections-prod
+          WEBSOCKET_ENDPOINT: wss://dtlfw1w3nc.execute-api.eu-west-1.amazonaws.com/prod
           NODE_ENV: !Ref Environment
       Timeout: 30
 

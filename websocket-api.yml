@@ -29,6 +29,7 @@ Resources:
       Environment:
         Variables:
           CONNECTIONS_TABLE: !Ref ConnectionsTable
+          WEBSOCKET_ENDPOINT: !Sub 'https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
       Timeout: 30
 
   # DynamoDB for WebSocket connections
