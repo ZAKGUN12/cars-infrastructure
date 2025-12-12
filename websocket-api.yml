@@ -1,17 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'WebSocket API for real-time notifications'
 
-Parameters:
-  Environment:
-    Type: String
-    Default: prod
-
 Resources:
   # WebSocket API
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
-      Name: !Sub 'vehicle-guesser-websocket-${Environment}'
+      Name: vehicle-guesser-websocket-prod
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: $request.body.action
 
@@ -19,7 +14,7 @@ Resources:
   WebSocketLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub 'vehicle-guesser-websocket-${Environment}'
+      FunctionName: vehicle-guesser-websocket-prod
       Runtime: nodejs18.x
       Handler: websocket.handler
       Role: !GetAtt WebSocketLambdaRole.Arn
@@ -28,34 +23,9 @@ Resources:
           exports.handler = async () => ({ statusCode: 200 });
       Environment:
         Variables:
-          CONNECTIONS_TABLE: !Ref ConnectionsTable
-          WEBSOCKET_ENDPOINT: !Sub 'https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+          CONNECTIONS_TABLE: vehicle-guesser-connections-prod
+          WEBSOCKET_ENDPOINT: !Sub 'https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
       Timeout: 30
-
-  # DynamoDB for WebSocket connections
-  ConnectionsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub 'vehicle-guesser-connections-${Environment}'
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: connectionId
-          AttributeType: S
-        - AttributeName: userId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: connectionId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: UserIdIndex
-          KeySchema:
-            - AttributeName: userId
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
 
   # Lambda Role
   WebSocketLambdaRole:
@@ -134,10 +104,10 @@ Resources:
     Properties:
       ApiId: !Ref WebSocketApi
       DeploymentId: !Ref WebSocketDeployment
-      StageName: !Ref Environment
+      StageName: prod
 
 Outputs:
   WebSocketUrl:
-    Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
     Export:
       Name: !Sub '${AWS::StackName}-WebSocketUrl'
