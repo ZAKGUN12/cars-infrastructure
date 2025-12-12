@@ -152,6 +152,13 @@ Resources:
       ParentId: !GetAtt Api.RootResourceId
       PathPart: decline-challenge
 
+  NotificationsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: notifications
+
   # Methods
   GameDataGet:
     Type: AWS::ApiGateway::Method
@@ -306,6 +313,19 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
+  NotificationsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref NotificationsResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   # Lambda Permission
   LambdaPermission:
     Type: AWS::Lambda::Permission
@@ -331,6 +351,7 @@ Resources:
       - CheckUsernamePost
       - AcceptChallengePost
       - DeclineChallengePost
+      - NotificationsGet
     Properties:
       RestApiId: !Ref Api
       StageName: !Ref Environment
