@@ -60,7 +60,7 @@ Resources:
           GAME_DATA_TABLE: vehicle-guesser-gamedata-prod
           CHALLENGE_TABLE: vehicle-guesser-challenges-prod
           CONNECTIONS_TABLE: vehicle-guesser-connections-prod
-          WEBSOCKET_ENDPOINT: wss://dtlfw1w3nc.execute-api.eu-west-1.amazonaws.com/prod
+          WEBSOCKET_ENDPOINT: https://dtlfw1w3nc.execute-api.eu-west-1.amazonaws.com/prod
           NODE_ENV: !Ref Environment
       Timeout: 30
 
@@ -359,7 +359,7 @@ Resources:
       StageName: !Ref Environment
 
 Outputs:
-  ApiUrl:
+  ApiGatewayUrl:
     Value: !Sub 'https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
     Export:
       Name: !Sub '${AWS::StackName}-ApiUrl'
