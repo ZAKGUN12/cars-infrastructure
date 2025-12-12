@@ -138,6 +138,20 @@ Resources:
       ParentId: !GetAtt Api.RootResourceId
       PathPart: check-username
 
+  AcceptChallengeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: accept-challenge
+
+  DeclineChallengeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: decline-challenge
+
   # Methods
   GameDataGet:
     Type: AWS::ApiGateway::Method
@@ -266,6 +280,32 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
+  AcceptChallengePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref AcceptChallengeResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  DeclineChallengePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref DeclineChallengeResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   # Lambda Permission
   LambdaPermission:
     Type: AWS::Lambda::Permission
@@ -289,6 +329,8 @@ Resources:
       - SetupUsernameOptions
       - CheckEmailPost
       - CheckUsernamePost
+      - AcceptChallengePost
+      - DeclineChallengePost
     Properties:
       RestApiId: !Ref Api
       StageName: !Ref Environment
