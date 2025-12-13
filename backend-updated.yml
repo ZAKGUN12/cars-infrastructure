@@ -11,6 +11,22 @@ Parameters:
     Description: Cognito User Pool ID
 
 Resources:
+  # DynamoDB Tables
+  GameDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'vehicle-guesser-gamedata-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   # Lambda Role
   LambdaRole:
     Type: AWS::IAM::Role
@@ -38,10 +54,12 @@ Resources:
                   - dynamodb:Scan
                   - dynamodb:Query
                 Resource: 
-                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-gamedata-prod'
+                  - !GetAtt GameDataTable.Arn
                   - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-challenges-prod'
                   - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-matchmaking-prod'
                   - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-matchmaking-prod/index/*'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-connections-prod'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-connections-prod/index/*'
 
   # Lambda Function
   ApiFunction:
@@ -59,7 +77,7 @@ Resources:
           });
       Environment:
         Variables:
-          GAME_DATA_TABLE: vehicle-guesser-gamedata-prod
+          GAME_DATA_TABLE: !Ref GameDataTable
           CHALLENGE_TABLE: vehicle-guesser-challenges-prod
           CONNECTIONS_TABLE: vehicle-guesser-connections-prod
           MATCHMAKING_TABLE: vehicle-guesser-matchmaking-prod

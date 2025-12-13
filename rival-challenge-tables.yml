@@ -5,7 +5,7 @@ Resources:
   MatchmakingTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${AWS::StackName}-matchmaking'
+      TableName: vehicle-guesser-matchmaking-prod
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -31,6 +31,43 @@ Resources:
         - Key: Environment
           Value: Production
 
+  RivalStatsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vehicle-guesser-rival-stats-prod
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: VehicleGuesser
+        - Key: Environment
+          Value: Production
+
+  TournamentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vehicle-guesser-tournaments-prod
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tournamentId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tournamentId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: VehicleGuesser
+        - Key: Environment
+          Value: Production
+
 
 
 Outputs:
@@ -39,4 +76,16 @@ Outputs:
     Value: !Ref MatchmakingTable
     Export:
       Name: !Sub '${AWS::StackName}-MatchmakingTable'
+
+  RivalStatsTableName:
+    Description: 'Rival stats table name'
+    Value: !Ref RivalStatsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-RivalStatsTable'
+
+  TournamentsTableName:
+    Description: 'Tournaments table name'
+    Value: !Ref TournamentsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TournamentsTable'
 
