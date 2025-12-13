@@ -161,6 +161,13 @@ Resources:
       ParentId: !GetAtt Api.RootResourceId
       PathPart: check-username
 
+  UpdateActivityResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: update-activity
+
   AcceptChallengeResource:
     Type: AWS::ApiGateway::Resource
     Properties:
