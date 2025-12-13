@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'DynamoDB tables for rival challenge system'
+
+Resources:
+  MatchmakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-matchmaking'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: skillLevel
+          AttributeType: N
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SkillLevelIndex
+          KeySchema:
+            - AttributeName: skillLevel
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: VehicleGuesser
+        - Key: Environment
+          Value: Production
+
+  TournamentTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-tournaments'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tournamentId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tournamentId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: VehicleGuesser
+        - Key: Environment
+          Value: Production
+
+  RivalStatsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-rival-stats'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: rivalId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: rivalId
+          KeyType: RANGE
+      Tags:
+        - Key: Project
+          Value: VehicleGuesser
+        - Key: Environment
+          Value: Production
+
+Outputs:
+  MatchmakingTableName:
+    Description: 'Matchmaking table name'
+    Value: !Ref MatchmakingTable
+    Export:
+      Name: !Sub '${AWS::StackName}-MatchmakingTable'
+
+  TournamentTableName:
+    Description: 'Tournament table name'
+    Value: !Ref TournamentTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TournamentTable'
+
+  RivalStatsTableName:
+    Description: 'Rival stats table name'
+    Value: !Ref RivalStatsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-RivalStatsTable'

@@ -40,6 +40,11 @@ Resources:
                 Resource: 
                   - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-gamedata-prod'
                   - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-challenges-prod'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-matchmaking-prod'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-tournaments-prod'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-rival-stats-prod'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-matchmaking-prod/index/*'
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-tournaments-prod/index/*'
 
   # Lambda Function
   ApiFunction:
@@ -60,6 +65,9 @@ Resources:
           GAME_DATA_TABLE: vehicle-guesser-gamedata-prod
           CHALLENGE_TABLE: vehicle-guesser-challenges-prod
           CONNECTIONS_TABLE: vehicle-guesser-connections-prod
+          MATCHMAKING_TABLE: vehicle-guesser-matchmaking-prod
+          TOURNAMENT_TABLE: vehicle-guesser-tournaments-prod
+          RIVAL_STATS_TABLE: vehicle-guesser-rival-stats-prod
           WEBSOCKET_ENDPOINT: https://dtlfw1w3nc.execute-api.eu-west-1.amazonaws.com/prod
           NODE_ENV: !Ref Environment
       Timeout: 30
@@ -160,6 +168,77 @@ Resources:
       RestApiId: !Ref Api
       ParentId: !GetAtt Api.RootResourceId
       PathPart: notifications
+
+  # New rival challenge resources
+  MatchmakingResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: matchmaking
+
+  JoinQueueResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !Ref MatchmakingResource
+      PathPart: join-queue
+
+  LeaveQueueResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !Ref MatchmakingResource
+      PathPart: leave-queue
+
+  TournamentsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: tournaments
+
+  ActiveTournamentsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !Ref TournamentsResource
+      PathPart: active
+
+  JoinTournamentResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !Ref TournamentsResource
+      PathPart: join
+
+  ChallengesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: challenges
+
+  ChallengeHistoryResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !Ref ChallengesResource
+      PathPart: history
+
+  RevengeChallengeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !Ref ChallengesResource
+      PathPart: revenge
+
+  UpdateActivityResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: update-activity
 
   # Methods
   GameDataGet:
@@ -328,6 +407,98 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
+  # New rival challenge methods
+  JoinQueuePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref JoinQueueResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  LeaveQueuePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref LeaveQueueResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  ActiveTournamentsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref ActiveTournamentsResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  JoinTournamentPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref JoinTournamentResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  ChallengeHistoryGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref ChallengeHistoryResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  RevengeChallengePost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref RevengeChallengeResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  UpdateActivityPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref UpdateActivityResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   # Lambda Permission
   LambdaPermission:
     Type: AWS::Lambda::Permission
@@ -354,6 +525,13 @@ Resources:
       - AcceptChallengePost
       - DeclineChallengePost
       - NotificationsGet
+      - JoinQueuePost
+      - LeaveQueuePost
+      - ActiveTournamentsGet
+      - JoinTournamentPost
+      - ChallengeHistoryGet
+      - RevengeChallengePost
+      - UpdateActivityPost
     Properties:
       RestApiId: !Ref Api
       StageName: !Ref Environment
