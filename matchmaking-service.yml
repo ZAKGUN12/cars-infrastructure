@@ -1,0 +1,279 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Real-time Matchmaking Service'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+
+Resources:
+  # DynamoDB Tables
+  MatchmakingQueueTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'matchmaking-queue-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: playerId
+          AttributeType: S
+        - AttributeName: skillLevel
+          AttributeType: N
+        - AttributeName: queueTime
+          AttributeType: N
+      KeySchema:
+        - AttributeName: playerId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SkillLevelIndex
+          KeySchema:
+            - AttributeName: skillLevel
+              KeyType: HASH
+            - AttributeName: queueTime
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ActiveMatchesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'active-matches-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: matchId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: matchId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # Lambda Functions
+  MatchmakingFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'matchmaking-service-${Environment}'
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt MatchmakingRole.Arn
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+          const { DynamoDBDocumentClient, PutCommand, QueryCommand, DeleteCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+          const crypto = require('crypto');
+          const uuidv4 = () => crypto.randomUUID();
+          
+          const client = new DynamoDBClient({ region: process.env.AWS_REGION });
+          const dynamodb = DynamoDBDocumentClient.from(client);
+          
+          const QUEUE_TABLE = process.env.QUEUE_TABLE;
+          const MATCHES_TABLE = process.env.MATCHES_TABLE;
+          const SKILL_TOLERANCE = 100; // Skill level tolerance for matching
+          
+          exports.handler = async (event) => {
+            console.log('Event:', JSON.stringify(event, null, 2));
+            
+            const { httpMethod, path, body } = event;
+            const requestBody = body ? JSON.parse(body) : {};
+            
+            try {
+              if (path === '/matchmaking/join-queue' && httpMethod === 'POST') {
+                return await joinQueue(requestBody, event);
+              } else if (path === '/matchmaking/leave-queue' && httpMethod === 'POST') {
+                return await leaveQueue(event);
+              } else if (path === '/matchmaking/find-match' && httpMethod === 'POST') {
+                return await findMatch();
+              }
+              
+              return {
+                statusCode: 404,
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: 'Not found' })
+              };
+            } catch (error) {
+              console.error('Error:', error);
+              return {
+                statusCode: 500,
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: error.message })
+              };
+            }
+          };
+          
+          async function joinQueue(body, event) {
+            const { skillLevel, difficulty } = body;
+            const playerId = getUserId(event);
+            const queueTime = Date.now();
+            
+            // Add player to queue
+            await dynamodb.send(new PutCommand({
+              TableName: QUEUE_TABLE,
+              Item: {
+                playerId,
+                skillLevel: skillLevel || 0,
+                difficulty: difficulty || 'Easy',
+                queueTime,
+                ttl: Math.floor(Date.now() / 1000) + 300 // 5 min TTL
+              }
+            }));
+            
+            console.log(`Player ${playerId} joined queue`);
+            
+            // Try immediate matching
+            const match = await attemptMatch(playerId, skillLevel || 0, difficulty || 'Easy');
+            
+            return {
+              statusCode: 200,
+              headers: { 'Access-Control-Allow-Origin': '*' },
+              body: JSON.stringify({ 
+                success: true, 
+                estimatedWait: match ? 0 : 5,
+                matchFound: !!match,
+                match
+              })
+            };
+          }
+          
+          async function leaveQueue(event) {
+            const playerId = getUserId(event);
+            
+            await dynamodb.send(new DeleteCommand({
+              TableName: QUEUE_TABLE,
+              Key: { playerId }
+            }));
+            
+            return {
+              statusCode: 200,
+              headers: { 'Access-Control-Allow-Origin': '*' },
+              body: JSON.stringify({ success: true })
+            };
+          }
+          
+          async function attemptMatch(playerId, skillLevel, difficulty) {
+            // Find players in similar skill range
+            const result = await dynamodb.send(new QueryCommand({
+              TableName: QUEUE_TABLE,
+              IndexName: 'SkillLevelIndex',
+              KeyConditionExpression: 'skillLevel = :skillLevel',
+              ExpressionAttributeValues: {
+                ':minSkill': Math.max(0, skillLevel - SKILL_TOLERANCE),
+                ':maxSkill': skillLevel + SKILL_TOLERANCE,
+                ':playerId': playerId,
+                ':difficulty': difficulty
+              },
+              FilterExpression: 'playerId <> :playerId AND difficulty = :difficulty'
+            }));
+            
+            if (result.Items && result.Items.length > 0) {
+              const opponent = result.Items[0];
+              const matchId = uuidv4();
+              
+              // Create match
+              await dynamodb.send(new PutCommand({
+                TableName: MATCHES_TABLE,
+                Item: {
+                  matchId,
+                  player1: playerId,
+                  player2: opponent.playerId,
+                  difficulty,
+                  createdAt: Date.now(),
+                  ttl: Math.floor(Date.now() / 1000) + 1800 // 30 min TTL
+                }
+              }));
+              
+              // Remove both players from queue
+              await Promise.all([
+                dynamodb.send(new DeleteCommand({
+                  TableName: QUEUE_TABLE,
+                  Key: { playerId }
+                })),
+                dynamodb.send(new DeleteCommand({
+                  TableName: QUEUE_TABLE,
+                  Key: { playerId: opponent.playerId }
+                }))
+              ]);
+              
+              console.log(`Match created: ${matchId}`);
+              return { matchId, opponent: opponent.playerId };
+            }
+            
+            return null;
+          }
+          
+          function getUserId(event) {
+            return event.requestContext?.authorizer?.claims?.sub || 'anonymous';
+          }
+      Environment:
+        Variables:
+          QUEUE_TABLE: !Ref MatchmakingQueueTable
+          MATCHES_TABLE: !Ref ActiveMatchesTable
+      Timeout: 30
+
+  # IAM Role
+  MatchmakingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: MatchmakingPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt MatchmakingQueueTable.Arn
+                  - !GetAtt ActiveMatchesTable.Arn
+                  - !Sub '${MatchmakingQueueTable.Arn}/index/*'
+
+  # EventBridge Rule for periodic matching
+  MatchmakingSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: 'Trigger matchmaking every 10 seconds'
+      ScheduleExpression: 'rate(10 seconds)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt MatchmakingFunction.Arn
+          Id: MatchmakingTarget
+          Input: '{"httpMethod": "POST", "path": "/matchmaking/find-match"}'
+
+  MatchmakingPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MatchmakingFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MatchmakingSchedule.Arn
+
+Outputs:
+  QueueTableName:
+    Value: !Ref MatchmakingQueueTable
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueTable'
+  
+  MatchesTableName:
+    Value: !Ref ActiveMatchesTable
+    Export:
+      Name: !Sub '${AWS::StackName}-MatchesTable'
+  
+  MatchmakingFunctionArn:
+    Value: !GetAtt MatchmakingFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'

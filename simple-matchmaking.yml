@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Simple Matchmaking Service'
+
+Resources:
+  MatchmakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vehicle-guesser-matchmaking-simple
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: playerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: playerId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+Outputs:
+  TableName:
+    Value: !Ref MatchmakingTable
