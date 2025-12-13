@@ -211,15 +211,6 @@ Resources:
       ParentId: !Ref MatchmakingResource
       PathPart: leave-queue
 
-
-
-  UpdateActivityResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref Api
-      ParentId: !GetAtt Api.RootResourceId
-      PathPart: update-activity
-
   # Methods
   GameDataGet:
     Type: AWS::ApiGateway::Method
