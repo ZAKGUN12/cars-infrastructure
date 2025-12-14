@@ -283,6 +283,18 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
+  GetChallengeOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref GetChallengeResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   MyChallengesGet:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -506,6 +518,7 @@ Resources:
       - LeaderboardGet
       - CreateChallengePost
       - GetChallengePost
+      - GetChallengeOptions
       - MyChallengesGet
       - SetupUsernamePost
       - SetupUsernameOptions
