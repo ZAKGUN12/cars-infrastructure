@@ -182,6 +182,13 @@ Resources:
       ParentId: !GetAtt Api.RootResourceId
       PathPart: decline-challenge
 
+  ChallengeStatusResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: challenge-status
+
   NotificationsResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -365,6 +372,31 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
 
+  ChallengeStatusPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref ChallengeStatusResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref Authorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
+  ChallengeStatusOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref ChallengeStatusResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+
   NotificationsGet:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -488,6 +520,8 @@ Resources:
       - LeaveQueueOptions
       - UpdateActivityPost
       - UpdateActivityOptions
+      - ChallengeStatusPost
+      - ChallengeStatusOptions
     Properties:
       RestApiId: !Ref Api
       StageName: !Ref Environment
