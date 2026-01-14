@@ -39,7 +39,7 @@ jobs:
         else
           echo "🚀 Deploying Cognito stack (current status: $STACK_STATUS)"
           aws cloudformation deploy \
-            --template-file cognito-simple.yml \
+            --template-file templates/cognito-simple.yml \
             --stack-name vehicle-guesser-cognito \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --region eu-west-1 \
