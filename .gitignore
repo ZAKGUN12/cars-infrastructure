@@ -1,0 +1,30 @@
+# CloudFormation
+*.template
+packaged-*.yml
+
+# Environment variables
+.env
+.env.local
+cognito-secrets.yml
+!cognito-secrets-secure.yml
+
+# Logs
+*.log
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AWS
+.aws-sam/
+samconfig.toml
+
+# Temporary
+*.tmp
+.cache/
