@@ -27,6 +27,78 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  ChallengesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'vehicle-guesser-challenges-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: challengeId
+          AttributeType: S
+        - AttributeName: targetPlayerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: challengeId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: TargetPlayerIndex
+          KeySchema:
+            - AttributeName: targetPlayerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'vehicle-guesser-connections-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MatchmakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'vehicle-guesser-matchmaking-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: difficulty
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: DifficultyIndex
+          KeySchema:
+            - AttributeName: difficulty
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   # Lambda Role
   LambdaRole:
     Type: AWS::IAM::Role
@@ -55,11 +127,12 @@ Resources:
                   - dynamodb:Query
                 Resource: 
                   - !GetAtt GameDataTable.Arn
-                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-challenges-prod'
-                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-matchmaking-prod'
-                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-matchmaking-prod/index/*'
-                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-connections-prod'
-                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/vehicle-guesser-connections-prod/index/*'
+                  - !GetAtt ChallengesTable.Arn
+                  - !Sub '${ChallengesTable.Arn}/index/*'
+                  - !GetAtt ConnectionsTable.Arn
+                  - !Sub '${ConnectionsTable.Arn}/index/*'
+                  - !GetAtt MatchmakingTable.Arn
+                  - !Sub '${MatchmakingTable.Arn}/index/*'
 
   # Lambda Function
   ApiFunction:
@@ -78,9 +151,9 @@ Resources:
       Environment:
         Variables:
           GAME_DATA_TABLE: !Ref GameDataTable
-          CHALLENGE_TABLE: vehicle-guesser-challenges-prod
-          CONNECTIONS_TABLE: vehicle-guesser-connections-prod
-          MATCHMAKING_TABLE: vehicle-guesser-matchmaking-prod
+          CHALLENGE_TABLE: !Ref ChallengesTable
+          CONNECTIONS_TABLE: !Ref ConnectionsTable
+          MATCHMAKING_TABLE: !Ref MatchmakingTable
           WEBSOCKET_ENDPOINT: https://dtlfw1w3nc.execute-api.eu-west-1.amazonaws.com/prod
           NODE_ENV: !Ref Environment
       Timeout: 30
