@@ -64,18 +64,34 @@ for stack in "${FAILED_STACKS[@]}"; do
 done
 
 echo ""
-echo "🗑️  Deleting Unused DynamoDB Tables..."
+echo "⚠️  WARNING: Empty DynamoDB Tables Found"
+echo ""
+echo "The following tables are empty but may be used for future features:"
+echo "  - vehicle-guesser-matchmaking-simple"
+echo "  - vehicle-guesser-rival-tables-matchmaking"
+echo "  - vehicle-guesser-rival-tables-rival-stats"
+echo "  - vehicle-guesser-rival-tables-tournaments"
+echo ""
+read -p "Do you want to delete these tables? (yes/no): " delete_tables
+
+if [ "$delete_tables" != "yes" ]; then
+    echo "Skipping table deletion."
+    exit 0
+fi
+
+echo ""
+echo "🗑️  Deleting Empty DynamoDB Tables..."
 echo ""
 
-# Delete unused tables
-UNUSED_TABLES=(
+# Delete empty tables
+EMPTY_TABLES=(
     "vehicle-guesser-matchmaking-simple"
     "vehicle-guesser-rival-tables-matchmaking"
     "vehicle-guesser-rival-tables-rival-stats"
     "vehicle-guesser-rival-tables-tournaments"
 )
 
-for table in "${UNUSED_TABLES[@]}"; do
+for table in "${EMPTY_TABLES[@]}"; do
     if aws dynamodb describe-table \
         --table-name "$table" \
         --region $REGION &> /dev/null; then
