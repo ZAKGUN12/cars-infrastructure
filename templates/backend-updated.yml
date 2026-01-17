@@ -7,7 +7,7 @@ Parameters:
     Default: prod
   UserPoolId:
     Type: String
-    Default: eu-west-1_D2YA0eyz6
+    Default: eu-west-1_kr1QRzuvC
     Description: Cognito User Pool ID
 
 Resources:
@@ -67,7 +67,7 @@ Resources:
     Properties:
       FunctionName: !Sub 'vehicle-guesser-api-${Environment}'
       Runtime: nodejs18.x
-      Handler: cognito-index.handler
+      Handler: index.handler
       Role: !GetAtt LambdaRole.Arn
       Code:
         ZipFile: |

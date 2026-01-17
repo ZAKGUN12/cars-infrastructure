@@ -67,7 +67,8 @@ deploy_backend() {
     
     if [ -z "$USER_POOL_ID" ]; then
         print_error "Could not retrieve User Pool ID from Cognito stack"
-        exit 1
+        print_warning "Using default User Pool ID: eu-west-1_kr1QRzuvC"
+        USER_POOL_ID="eu-west-1_kr1QRzuvC"
     fi
     
     aws cloudformation deploy \
